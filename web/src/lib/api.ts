@@ -1,3 +1,5 @@
+import { generateWithGemini, getStoredGeminiKey } from './gemini'
+
 export function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ')
 }
@@ -201,9 +203,50 @@ function getFallbackJobSearchResponse(title: string, location: string) {
   }
 }
 
-function getFallbackSummaryResponse(text: string, _mode: string, length: string) {
+async function getFallbackSummaryResponse(text: string, mode: string, length: string) {
   const words = text ? text.trim().split(/\s+/).filter(Boolean) : []
   const wordCount = words.length || 0
+  const apiKey = getStoredGeminiKey()
+
+  if (apiKey && text.trim()) {
+    try {
+      const prompt = `You are an AI Document & Notes Summarizer for university students.
+Mode/Style: ${mode}
+Length: ${length}
+Content:
+${text}
+
+Respond in strict JSON format:
+{
+  "summary": "Clear, informative paragraph summary...",
+  "bullets": ["Bullet 1 with key insight", "Bullet 2 with core axiom", "Bullet 3 with application"],
+  "study_notes": [{"concept": "Concept Name", "frequency": 1, "context": "One-line definition or significance"}],
+  "keywords": ["Term1", "Term2", "Term3", "Term4"]
+}`
+      const raw = await generateWithGemini(prompt, apiKey)
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        const sumWords = (parsed.summary || '').split(/\s+/).filter(Boolean).length
+        return {
+          source: 'Uploaded Study Document',
+          summary: parsed.summary || raw,
+          bullets: parsed.bullets || ['Key concept reviewed.'],
+          study_notes: parsed.study_notes || [],
+          keywords: parsed.keywords || ['Study Notes', 'Core Concepts'],
+          stats: {
+            original_words: wordCount,
+            summary_words: sumWords,
+            compression_pct: wordCount ? Math.round(((wordCount - sumWords) / wordCount) * 100) : 60,
+            read_time_saved_min: Math.max(1, Math.round((wordCount - sumWords) / 200)),
+          },
+        }
+      }
+    } catch (e) {
+      console.warn('Live summarizer notice:', e)
+    }
+  }
+
   const summaryLength = length === 'short' ? 30 : length === 'detailed' ? 90 : 60
   const snippet = text.trim() ? text.slice(0, 260) : 'Study material overview.'
 
@@ -580,9 +623,39 @@ export async function apiSend<T>(path: string, method: string, body?: any): Prom
     return { ok: true } as unknown as T
   }
 
-  // SGPA (Study Guide & Personal Assistant) fallbacks
+  // SGPA (Study Guide & Personal Assistant) live & fallback handlers
   if (path === '/sgpa/explain' && method === 'POST') {
     const concept = body?.concept || 'Academic Topic'
+    const academicLevel = body?.academic_level || 'Undergraduate'
+    const includeVisuals = body?.include_visuals !== false
+    const apiKey = getStoredGeminiKey()
+
+    if (apiKey) {
+      try {
+        const prompt = `You are SGPA (Study Guide & Personal Assistant), an expert academic AI tutor for university students.
+
+[Academic Level]: ${academicLevel}
+[Topic to Explain]: ${concept}
+
+Instructions:
+1. Provide an intuitive, easy-to-grasp definition with a relatable real-world analogy.
+2. Step-by-step breakdown or core principles with clear bullet points.
+3. Highlight Common Pitfalls & Misconceptions students often face in exams/interviews.
+4. End with 3-4 crisp "Key Takeaways" for high-yield revision.
+${includeVisuals ? '- Include a clean sketchable ASCII diagram or standard ```mermaid code block.' : ''}
+Use clean, structured Markdown formatting.`
+        const responseText = await generateWithGemini(prompt, apiKey)
+        return {
+          mode: 'explainer',
+          concept,
+          response: responseText,
+          has_visuals: includeVisuals,
+        } as unknown as T
+      } catch (err) {
+        console.warn('Gemini Live API generation notice:', err)
+      }
+    }
+
     return {
       mode: 'explainer',
       concept,
@@ -610,12 +683,48 @@ graph TD
     B --> C[Core Transformation / Logic]
     C --> D[Optimal Result / Output]
 \`\`\`
-*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for real-time generative responses.)*`,
+
+---
+💡 **Want Live Custom AI Responses?**
+Click the **"🔑 Gemini Key"** button in the topbar to enter your free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).`,
     } as unknown as T
   }
 
   if (path === '/sgpa/quiz/generate' && method === 'POST') {
     const topic = body?.topic || 'Selected Subject'
+    const numQ = body?.num_questions || 5
+    const includeVisuals = body?.include_visuals !== false
+    const apiKey = getStoredGeminiKey()
+
+    if (apiKey) {
+      try {
+        const prompt = `You are SGPA Quizzer, an academic assessment generator.
+
+[Source Material or Subject Topic]:
+${topic}
+
+Instructions:
+1. Generate a balanced test of approx ${numQ} questions covering:
+   - Multiple Choice Questions (MCQ) with 4 distinct options (A, B, C, D) each on its own line.
+   - Conceptual True / False questions.
+   - Fill-in-the-Blanks.
+   - Short Analytical / Descriptive Question.
+2. Clearly number every question. If helpful, include a small italicized hint (*Hint: ...*).
+3. DO NOT reveal the correct answers immediately beneath the questions.
+4. Provide a dedicated section at the bottom titled \`## 🔑 Answer Key & Explanations\` with concise justifications.
+${includeVisuals ? '5. Provide a compact Markdown Summary Table at the end:\n   | Q# | Subtopic | Difficulty | Key Concept Tested |' : ''}`
+        const responseText = await generateWithGemini(prompt, apiKey)
+        return {
+          mode: 'quiz_generate',
+          topic,
+          num_questions: numQ,
+          response: responseText,
+        } as unknown as T
+      } catch (err) {
+        console.warn('Gemini Live API generation notice:', err)
+      }
+    }
+
     return {
       mode: 'quiz_generate',
       topic,
@@ -653,28 +762,101 @@ Explain why memoization transforms exponential recursive solutions into polynomi
 | 3 | Searching | Easy | Logarithmic Complexity |
 | 4 | Dynamic Programming | Hard | Overlapping Subproblems |
 
-*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for generative quizzes.)*`,
+---
+💡 **Want Live Custom Quizzes?**
+Click **"🔑 Gemini Key"** in the topbar to enter your free Google Gemini API key.`,
     } as unknown as T
   }
 
   if (path === '/sgpa/quiz/solve' && method === 'POST') {
+    const questions = body?.questions || ''
+    const wordLimit = body?.word_limit || 120
+    const marksCategory = body?.marks_category || 'Short Answer (2-3 Marks)'
+    const apiKey = getStoredGeminiKey()
+
+    if (apiKey) {
+      try {
+        const prompt = `You are SGPA Exam Solver, an expert academic assistant that produces high-scoring exam solutions.
+
+[Target Mark Scheme]: ${marksCategory} (~${wordLimit} words per answer)
+[Questions to Solve]:
+${questions}
+
+Instructions:
+1. Solve each question with structured, point-wise answers tailored for maximum marks.
+2. Format:
+   - **Q[number]: [Restated Question]**
+   - **Direct Answer / Formula / Thesis**: Concise lead sentence.
+   - **Detailed Points / Derivation / Working**: Clear numbered or bulleted breakdown.
+   - **Key Terminology / Keywords highlighted in bold**.
+3. Adhere approximately to the requested word limit (~${wordLimit} words) and exam style.`
+        const responseText = await generateWithGemini(prompt, apiKey)
+        return {
+          mode: 'quiz_solve',
+          questions,
+          response: responseText,
+        } as unknown as T
+      } catch (err) {
+        console.warn('Gemini Live API generation notice:', err)
+      }
+    }
+
     return {
       mode: 'quiz_solve',
       response: `### ✍️ Exam-Ready Solutions
 
 **Q1: Problem Analysis & Structured Answer**
-- **Core Concept**: Identify the governing principles and state constraints.
-- **Key Derivation**:
-  1. Formulate initial boundary conditions.
-  2. Apply the canonical algorithm step-by-step.
-  3. Verify worst-case and average-case performance guarantees.
-- **Conclusion**: This ensures optimal solution correctness with minimal memory overhead.
+- **Core Concept**: Identify governing principles and boundary constraints.
+- **Key Derivation & Working**:
+  1. Formulate initial state and boundary conditions ($N \\ge 1$).
+  2. Execute transformations step-by-step maintaining invariants.
+  3. Validate against average and worst-case performance bounds.
+- **Conclusion**: Ensures full correctness with minimal space complexity overhead.
 
-*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for custom exam solutions.)*`,
+---
+💡 **Want Live Question Solving?**
+Click **"🔑 Gemini Key"** in the topbar to enter your free Google Gemini API key.`,
     } as unknown as T
   }
 
   if (path === '/sgpa/quiz/evaluate' && method === 'POST') {
+    const questions = body?.questions || ''
+    const studentAnswers = body?.student_answers || ''
+    const apiKey = getStoredGeminiKey()
+
+    if (apiKey) {
+      try {
+        const prompt = `You are SGPA Answer Evaluator, an objective and encouraging academic examiner.
+
+[Questions]:
+${questions}
+
+[Student's Submitted Answers]:
+${studentAnswers}
+
+Instructions:
+1. For each question:
+   - Identify whether the student's answer is Correct, Partially Correct, or Incorrect.
+   - Award a score (e.g. 4/5 marks, 1/1 mark, etc.).
+   - Provide constructive feedback: what was well done, what missing keywords/formulas were omitted, and how to improve.
+2. Provide an overall summary:
+   - **Total Estimated Score** (e.g., 16/20 | 80%).
+   - **Top Strengths**.
+   - **High-Priority Revision Areas**.
+3. Include a Markdown Scorecard Table:
+   | Question # | Max Marks | Marks Awarded | Verdict | Key Missing Points |`
+        const responseText = await generateWithGemini(prompt, apiKey)
+        return {
+          mode: 'quiz_evaluate',
+          questions,
+          student_answers: studentAnswers,
+          response: responseText,
+        } as unknown as T
+      } catch (err) {
+        console.warn('Gemini Live API generation notice:', err)
+      }
+    }
+
     return {
       mode: 'quiz_evaluate',
       response: `### 📊 SGPA Evaluation Report
@@ -698,13 +880,50 @@ Explain why memoization transforms exponential recursive solutions into polynomi
 | Q1 | 5 | 5 | ✅ Full Marks | None |
 | Q2 | 5 | 4 | ⚠️ Minor Gap | Edge-case complexity note |
 
-*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for automated grading.)*`,
+---
+💡 **Want Live Grading & Feedback?**
+Click **"🔑 Gemini Key"** in the topbar to enter your free Google Gemini API key.`,
     } as unknown as T
   }
 
   if (path === '/sgpa/summarize' && method === 'POST') {
     const text = body?.text || ''
+    const focus = body?.user_focus || ''
+    const includeVisuals = body?.include_visuals !== false
     const words = text.split(/\s+/).filter(Boolean).length
+    const apiKey = getStoredGeminiKey()
+
+    if (apiKey) {
+      try {
+        const prompt = `You are SGPA Academic Summarizer, an AI assistant preparing students for exams.
+
+[Student Focus]: ${focus || 'Standard high-yield exam preparation'}
+[Study Material]:
+${text}
+
+Instructions:
+1. Create a structured, exam-oriented study brief:
+   - **📌 Core Definition & Main Objective**
+   - **⚡ Critical Concepts & Axioms** (Bulleted, bolding key terms)
+   - **📐 Key Formulas, Equations, or Algorithms** (if applicable)
+   - **💡 Real-world Applications & Exam Question Patterns**
+   - **❓ 3-4 High-Yield Practice Questions** for active recall testing.
+${includeVisuals ? '- Include a sketchable ASCII diagram or mermaid code block.' : ''}
+Format in clean Markdown.`
+        const responseText = await generateWithGemini(prompt, apiKey)
+        const summaryWords = responseText.split(/\s+/).filter(Boolean).length
+        return {
+          mode: 'summarize',
+          response: responseText,
+          original_words: words,
+          summary_words: summaryWords,
+          compression_pct: Math.round(Math.max(0, (1 - (summaryWords / Math.max(words, 1)))) * 100),
+        } as unknown as T
+      } catch (err) {
+        console.warn('Gemini Live API generation notice:', err)
+      }
+    }
+
     return {
       mode: 'summarize',
       original_words: words,
@@ -724,7 +943,9 @@ A high-yield distillation of the provided notes focusing on core principles, for
 1. State the fundamental distinction between static and dynamic analysis.
 2. Explain the mechanism that ensures idempotent operations.
 
-*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for generative summaries.)*`,
+---
+💡 **Want Live Generative Summaries?**
+Click **"🔑 Gemini Key"** in the topbar to enter your free Google Gemini API key.`,
     } as unknown as T
   }
 
@@ -744,7 +965,7 @@ export async function apiForm<T>(path: string, form: FormData): Promise<T> {
     const text = (form.get('text') as string) || ''
     const mode = (form.get('mode') as string) || 'executive'
     const length = (form.get('length') as string) || 'medium'
-    return getFallbackSummaryResponse(text, mode, length) as unknown as T
+    return (await getFallbackSummaryResponse(text, mode, length)) as unknown as T
   }
 
   if (path === '/analyze') {
