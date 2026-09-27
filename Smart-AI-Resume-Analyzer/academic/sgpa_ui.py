@@ -8,9 +8,9 @@ def render_sgpa_ui():
     """Renders the SGPA Academic Study Suite in Streamlit."""
     st.markdown("""
     <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 1.8rem; border-radius: 16px; color: white; margin-bottom: 1.5rem;">
-        <h1 style="color: white; margin: 0; font-size: 2rem;">📘 SGPA — Study Guide & Personal Assistant</h1>
+        <h1 style="color: white; margin: 0; font-size: 2rem;">📘 Study Help AI</h1>
         <p style="color: #e0e7ff; margin: 0.5rem 0 0 0; font-size: 1.05rem;">
-            AI-powered academic study buddy: concept explainer, quiz generator, exam solver, and answer evaluator.
+            AI-powered academic study tutor: concept explainer, quiz generator, exam solver, and answer evaluator.
         </p>
     </div>
     """, unsafe_allow_html=True)

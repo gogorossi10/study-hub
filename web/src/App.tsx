@@ -5,7 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import { AppShell } from './components/layout/AppShell'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { HomePage } from './pages/HomePage'
-import { SGPAPage } from './pages/SGPAPage'
+import { StudyHelpAIPage } from './pages/StudyHelpAIPage'
 import { SummarizerPage } from './pages/SummarizerPage'
 import { AnalyzerPage } from './pages/AnalyzerPage'
 import { BuilderPage } from './pages/BuilderPage'
@@ -24,13 +24,14 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route path="/" element={<HomePage />} />
                 <Route
-                  path="/sgpa"
+                  path="/study-help"
                   element={
                     <ProtectedRoute>
-                      <SGPAPage />
+                      <StudyHelpAIPage />
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/sgpa" element={<Navigate to="/study-help" replace />} />
                 <Route
                   path="/workspace"
                   element={

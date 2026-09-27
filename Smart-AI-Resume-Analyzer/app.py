@@ -75,7 +75,7 @@ class ResumeApp:
 
         self.pages = {
             "🏠 HOME": self.render_home,
-            "📘 SGPA STUDY ASSISTANT": self.render_sgpa,
+            "📘 STUDY HELP AI": self.render_sgpa,
             "📑 DOCUMENT SUMMARIZER": self.render_summarizer,
             "🔍 RESUME ANALYZER": self.render_analyzer,
             "📝 RESUME BUILDER": self.render_builder,
@@ -2336,7 +2336,7 @@ class ResumeApp:
 
             # ACADEMIC SUITE
             st.markdown('<div class="sidebar-section-label">📚 ACADEMIC TOOLS</div>', unsafe_allow_html=True)
-            if st.button("📘  SGPA Study Assistant", key="nav_sgpa", use_container_width=True):
+            if st.button("📘  Study Help AI", key="nav_sgpa", use_container_width=True):
                 st.session_state.page = "sgpa"
                 st.rerun()
             if st.button("📑  Document Summarizer", key="nav_doc_summarizer", use_container_width=True):

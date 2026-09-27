@@ -20,7 +20,7 @@ export type NavItem = {
 
 export const NAV: NavItem[] = [
   { to: '/', label: 'Studio Home', hint: 'Overview of every tool', icon: Home, group: 'Hub' },
-  { to: '/sgpa', label: 'SGPA Study Assistant', hint: 'Concept explainer, quizzer & solver', icon: Sparkles, group: 'Academic' },
+  { to: '/study-help', label: 'Study Help AI', hint: 'Concept explainer, quizzer & exam solver', icon: Sparkles, group: 'Academic' },
   { to: '/workspace', label: 'Notes & Daily Tasks', hint: 'Notes saver, checkpoint & diary', icon: NotebookPen, group: 'Academic' },
   { to: '/summarizer', label: 'Study Summarizer', hint: 'Turn notes into reviews', icon: BookOpen, group: 'Academic' },
   { to: '/analyzer', label: 'Resume Analyzer', hint: 'Score a resume against a role', icon: FileSearch, group: 'Career' },
