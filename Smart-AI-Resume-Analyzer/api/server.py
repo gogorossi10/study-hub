@@ -47,6 +47,7 @@ from jobs.suggestions import EXPERIENCE_RANGES, JOB_SUGGESTIONS, JOB_TYPES, LOCA
 from utils.document_summarizer import DocumentSummarizer
 from utils.resume_analyzer import ResumeAnalyzer
 from utils.resume_builder import ResumeBuilder
+from academic.sgpa_engine import SGPAStudyEngine
 
 app = FastAPI(title="Student Hub API", version="2.0.0")
 app.add_middleware(
@@ -61,6 +62,7 @@ summarizer = DocumentSummarizer()
 analyzer = ResumeAnalyzer()
 builder = ResumeBuilder()
 job_portal = JobPortal()
+sgpa_engine = SGPAStudyEngine()
 
 
 @app.on_event("startup")
@@ -420,4 +422,107 @@ def remove_diary(entry_id: int, user_email: Optional[str] = "") -> dict:
     init_database()
     ok = delete_diary_entry_by_id(entry_id, user_email=user_email or '')
     return {"ok": ok}
+
+
+# ─── SGPA (Study Guide & Personal Assistant) Endpoints ───
+
+class SGPAExplainBody(BaseModel):
+    concept: str
+    context: Optional[str] = ""
+    include_visuals: Optional[bool] = True
+    academic_level: Optional[str] = "Undergraduate"
+
+
+class SGPAQuizGenBody(BaseModel):
+    topic: str
+    num_questions: Optional[int] = 5
+    context: Optional[str] = ""
+    include_visuals: Optional[bool] = True
+
+
+class SGPASolveBody(BaseModel):
+    questions: str
+    word_limit: Optional[int] = 120
+    marks_category: Optional[str] = "Short Answer (2-3 Marks)"
+    context: Optional[str] = ""
+
+
+class SGPAEvaluateBody(BaseModel):
+    questions: str
+    student_answers: str
+    context: Optional[str] = ""
+    include_visuals: Optional[bool] = True
+
+
+class SGPASummarizeBody(BaseModel):
+    text: str
+    user_focus: Optional[str] = ""
+    extra_instruction: Optional[str] = ""
+    include_visuals: Optional[bool] = True
+
+
+@app.post("/api/sgpa/explain")
+def sgpa_explain(body: SGPAExplainBody) -> dict:
+    if not body.concept.strip():
+        raise HTTPException(status_code=400, detail="Concept cannot be empty.")
+    result = sgpa_engine.explain_concept(
+        concept=body.concept,
+        context=body.context or "",
+        include_visuals=body.include_visuals if body.include_visuals is not None else True,
+        academic_level=body.academic_level or "Undergraduate"
+    )
+    return result
+
+
+@app.post("/api/sgpa/quiz/generate")
+def sgpa_generate_quiz(body: SGPAQuizGenBody) -> dict:
+    if not body.topic.strip():
+        raise HTTPException(status_code=400, detail="Topic or material cannot be empty.")
+    result = sgpa_engine.generate_quiz(
+        text_or_topic=body.topic,
+        num_questions=body.num_questions or 5,
+        context=body.context or "",
+        include_visuals=body.include_visuals if body.include_visuals is not None else True
+    )
+    return result
+
+
+@app.post("/api/sgpa/quiz/solve")
+def sgpa_solve_questions(body: SGPASolveBody) -> dict:
+    if not body.questions.strip():
+        raise HTTPException(status_code=400, detail="Questions cannot be empty.")
+    result = sgpa_engine.solve_questions(
+        questions=body.questions,
+        word_limit=body.word_limit or 120,
+        marks_category=body.marks_category or "short",
+        context=body.context or ""
+    )
+    return result
+
+
+@app.post("/api/sgpa/quiz/evaluate")
+def sgpa_evaluate_answers(body: SGPAEvaluateBody) -> dict:
+    if not body.questions.strip() or not body.student_answers.strip():
+        raise HTTPException(status_code=400, detail="Questions and student answers are required.")
+    result = sgpa_engine.evaluate_answers(
+        questions=body.questions,
+        student_answers=body.student_answers,
+        context=body.context or "",
+        include_visuals=body.include_visuals if body.include_visuals is not None else True
+    )
+    return result
+
+
+@app.post("/api/sgpa/summarize")
+def sgpa_summarize_doc(body: SGPASummarizeBody) -> dict:
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+    result = sgpa_engine.exam_summarize(
+        text=body.text,
+        user_focus=body.user_focus or "",
+        extra_instruction=body.extra_instruction or "",
+        include_visuals=body.include_visuals if body.include_visuals is not None else True
+    )
+    return result
+
 

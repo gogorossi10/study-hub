@@ -13,6 +13,7 @@ import plotly.express as px
 import pandas as pd
 
 from academic.document_summarizer_ui import render_document_summarizer
+from academic.sgpa_ui import render_sgpa_ui
 from jobs.job_search import render_job_search
 from jobs.job_tracker_ui import render_job_tracker
 
@@ -74,6 +75,7 @@ class ResumeApp:
 
         self.pages = {
             "🏠 HOME": self.render_home,
+            "📘 SGPA STUDY ASSISTANT": self.render_sgpa,
             "📑 DOCUMENT SUMMARIZER": self.render_summarizer,
             "🔍 RESUME ANALYZER": self.render_analyzer,
             "📝 RESUME BUILDER": self.render_builder,
@@ -2193,6 +2195,10 @@ class ResumeApp:
 
 
 
+    def render_sgpa(self):
+        """Render the SGPA Study Guide & Personal Assistant Suite"""
+        render_sgpa_ui()
+
     def render_summarizer(self):
         """Render the Academic Document & Notes Summarizer"""
         render_document_summarizer()
@@ -2330,6 +2336,9 @@ class ResumeApp:
 
             # ACADEMIC SUITE
             st.markdown('<div class="sidebar-section-label">📚 ACADEMIC TOOLS</div>', unsafe_allow_html=True)
+            if st.button("📘  SGPA Study Assistant", key="nav_sgpa", use_container_width=True):
+                st.session_state.page = "sgpa"
+                st.rerun()
             if st.button("📑  Document Summarizer", key="nav_doc_summarizer", use_container_width=True):
                 st.session_state.page = "document_summarizer"
                 st.rerun()
@@ -2361,6 +2370,8 @@ class ResumeApp:
         # Page key → render method mapping
         page_render_map = {
             "home":                self.render_home,
+            "sgpa":                self.render_sgpa,
+            "sgpa_study_assistant": self.render_sgpa,
             "document_summarizer": self.render_summarizer,
             "job_tracker":         self.render_tracker,
             "resume_analyzer":     self.render_analyzer,

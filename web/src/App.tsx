@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import { AppShell } from './components/layout/AppShell'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { HomePage } from './pages/HomePage'
+import { SGPAPage } from './pages/SGPAPage'
 import { SummarizerPage } from './pages/SummarizerPage'
 import { AnalyzerPage } from './pages/AnalyzerPage'
 import { BuilderPage } from './pages/BuilderPage'
@@ -22,6 +23,14 @@ export default function App() {
             <Routes>
               <Route element={<AppShell />}>
                 <Route path="/" element={<HomePage />} />
+                <Route
+                  path="/sgpa"
+                  element={
+                    <ProtectedRoute>
+                      <SGPAPage />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/workspace"
                   element={

@@ -580,6 +580,154 @@ export async function apiSend<T>(path: string, method: string, body?: any): Prom
     return { ok: true } as unknown as T
   }
 
+  // SGPA (Study Guide & Personal Assistant) fallbacks
+  if (path === '/sgpa/explain' && method === 'POST') {
+    const concept = body?.concept || 'Academic Topic'
+    return {
+      mode: 'explainer',
+      concept,
+      response: `### 📘 Concept Breakdown: ${concept}
+
+**Intuitive Analogy**: Think of ${concept} as a systematic protocol where inputs undergo structured transformations to reach deterministic target states efficiently.
+
+#### 🔑 Core Principles & Breakdown
+- **Core Mechanism**: Operates with well-defined state boundaries and explicit precondition checks.
+- **Resource Optimization**: Balances computational complexity, memory throughput, and algorithmic efficiency.
+- **Structural Integrity**: Ensures error resilience and reliable handling across variable workloads.
+
+#### ⚠️ Common Pitfalls & Misconceptions
+- Conflating worst-case asymptotic bounds with average runtime.
+- Overlooking edge cases such as empty partitions, boundary indexes, or concurrent access conditions.
+
+#### 📝 High-Yield Key Takeaways
+1. Always formulate base validation rules prior to execution.
+2. Isolate bottleneck operations to ensure high-throughput execution.
+3. Validate invariants across every stage.
+
+\`\`\`mermaid
+graph TD
+    A[Input State] --> B[Validation & Setup]
+    B --> C[Core Transformation / Logic]
+    C --> D[Optimal Result / Output]
+\`\`\`
+*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for real-time generative responses.)*`,
+    } as unknown as T
+  }
+
+  if (path === '/sgpa/quiz/generate' && method === 'POST') {
+    const topic = body?.topic || 'Selected Subject'
+    return {
+      mode: 'quiz_generate',
+      topic,
+      response: `### 📝 Practice Quiz: ${topic.slice(0, 40)}
+
+**1. Multiple Choice Question**
+What is the primary architectural goal of high cohesion and loose coupling in software design?
+- A) To maximize inter-dependency between modules
+- B) To ensure isolated testability and modular maintainability
+- C) To bypass compiler optimizations
+- D) To eliminate database transactions
+*Hint: Consider modular unit testing and independent service deployments.*
+
+**2. True / False**
+True or False: A deterministic algorithm produces identical outputs whenever given identical initial inputs and state.
+
+**3. Fill in the Blank**
+The time complexity of binary search on a sorted collection of $N$ elements is ____________.
+
+**4. Short Analytical Question**
+Explain why memoization transforms exponential recursive solutions into polynomial time.
+
+---
+
+## 🔑 Answer Key & Explanations
+1. **B** — Loose coupling allows components to evolve and be tested independently.
+2. **True** — Deterministic operations have consistent state transitions.
+3. **$O(\\log N)$** — Binary search eliminates half the remaining elements per iteration.
+4. **Answer**: Memoization caches subproblem results in a lookup table to eliminate redundant recursive calculations.
+
+| Q# | Subtopic | Difficulty | Key Concept Tested |
+|---|---|---|---|
+| 1 | Architecture | Medium | Modularity & Coupling |
+| 2 | Algorithmic Theory | Easy | Determinism |
+| 3 | Searching | Easy | Logarithmic Complexity |
+| 4 | Dynamic Programming | Hard | Overlapping Subproblems |
+
+*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for generative quizzes.)*`,
+    } as unknown as T
+  }
+
+  if (path === '/sgpa/quiz/solve' && method === 'POST') {
+    return {
+      mode: 'quiz_solve',
+      response: `### ✍️ Exam-Ready Solutions
+
+**Q1: Problem Analysis & Structured Answer**
+- **Core Concept**: Identify the governing principles and state constraints.
+- **Key Derivation**:
+  1. Formulate initial boundary conditions.
+  2. Apply the canonical algorithm step-by-step.
+  3. Verify worst-case and average-case performance guarantees.
+- **Conclusion**: This ensures optimal solution correctness with minimal memory overhead.
+
+*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for custom exam solutions.)*`,
+    } as unknown as T
+  }
+
+  if (path === '/sgpa/quiz/evaluate' && method === 'POST') {
+    return {
+      mode: 'quiz_evaluate',
+      response: `### 📊 SGPA Evaluation Report
+
+**Estimated Score**: 9/10 (90% — Excellent Understanding)
+
+#### 📝 Detailed Feedback
+1. **Question 1**: **Correct (5/5)**
+   - Clear and concise articulation of the foundational theorem with appropriate terminology.
+2. **Question 2**: **Partially Correct (4/5)**
+   - Good core logic. To earn full marks, mention asymptotic complexity and error propagation.
+
+#### 🏆 Key Strengths
+- Accurate technical terminology and clean reasoning.
+
+#### 🎯 Revision Focus
+- Ensure boundary edge cases are explicitly mentioned in technical proofs.
+
+| Question # | Max Marks | Marks Awarded | Verdict | Key Missing Points |
+|---|---|---|---|---|
+| Q1 | 5 | 5 | ✅ Full Marks | None |
+| Q2 | 5 | 4 | ⚠️ Minor Gap | Edge-case complexity note |
+
+*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for automated grading.)*`,
+    } as unknown as T
+  }
+
+  if (path === '/sgpa/summarize' && method === 'POST') {
+    const text = body?.text || ''
+    const words = text.split(/\s+/).filter(Boolean).length
+    return {
+      mode: 'summarize',
+      original_words: words,
+      summary_words: Math.round(words * 0.35) || 45,
+      compression_pct: 65,
+      response: `### 📑 Exam-Ready Study Brief
+
+#### 📌 Core Concept & Objective
+A high-yield distillation of the provided notes focusing on core principles, formal definitions, and practical exam patterns.
+
+#### ⚡ Critical Concepts & Axioms
+- **Principle 1**: Structured hierarchy and component isolation are essential for scalability.
+- **Principle 2**: Time and space complexity trade-offs must be evaluated based on workload access patterns.
+- **Principle 3**: Precondition validation prevents unintended state corruptions.
+
+#### ❓ Active Recall Practice
+1. State the fundamental distinction between static and dynamic analysis.
+2. Explain the mechanism that ensures idempotent operations.
+
+*(Tip: Connect your \`GEMINI_API_KEY\` in the backend for generative summaries.)*`,
+    } as unknown as T
+  }
+
   throw new Error(`Action failed for ${path}`)
 }
 
@@ -718,3 +866,92 @@ export async function apiDownload(path: string, body: any, fallbackName: string)
   a.click()
   URL.revokeObjectURL(url)
 }
+
+// ------------------------------------------------------------------
+// SGPA (Study Guide & Personal Assistant) API Client Methods
+// ------------------------------------------------------------------
+
+export type SGPAResult = {
+  mode: 'explainer' | 'quiz_generate' | 'quiz_solve' | 'quiz_evaluate' | 'summarize'
+  response: string
+  concept?: string
+  topic?: string
+  questions?: string
+  student_answers?: string
+  num_questions?: number
+  word_limit?: number
+  original_words?: number
+  summary_words?: number
+  compression_pct?: number
+}
+
+export async function explainConcept(
+  concept: string,
+  context = '',
+  include_visuals = true,
+  academic_level = 'Undergraduate'
+): Promise<SGPAResult> {
+  return apiSend<SGPAResult>('/sgpa/explain', 'POST', {
+    concept,
+    context,
+    include_visuals,
+    academic_level,
+  })
+}
+
+export async function generateQuiz(
+  topic: string,
+  num_questions = 5,
+  context = '',
+  include_visuals = true
+): Promise<SGPAResult> {
+  return apiSend<SGPAResult>('/sgpa/quiz/generate', 'POST', {
+    topic,
+    num_questions,
+    context,
+    include_visuals,
+  })
+}
+
+export async function solveQuestions(
+  questions: string,
+  word_limit = 120,
+  marks_category = 'Short Answer (2-3 Marks)',
+  context = ''
+): Promise<SGPAResult> {
+  return apiSend<SGPAResult>('/sgpa/quiz/solve', 'POST', {
+    questions,
+    word_limit,
+    marks_category,
+    context,
+  })
+}
+
+export async function evaluateAnswers(
+  questions: string,
+  student_answers: string,
+  context = '',
+  include_visuals = true
+): Promise<SGPAResult> {
+  return apiSend<SGPAResult>('/sgpa/quiz/evaluate', 'POST', {
+    questions,
+    student_answers,
+    context,
+    include_visuals,
+  })
+}
+
+export async function sgpaSummarize(
+  text: string,
+  user_focus = '',
+  extra_instruction = '',
+  include_visuals = true
+): Promise<SGPAResult> {
+  return apiSend<SGPAResult>('/sgpa/summarize', 'POST', {
+    text,
+    user_focus,
+    extra_instruction,
+    include_visuals,
+  })
+}
+

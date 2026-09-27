@@ -13,7 +13,7 @@ import { AuthModal } from './AuthModal'
 import { useAuth } from '../../context/AuthContext'
 import './AuthModal.css'
 
-type FeatureId = 'study' | 'resume' | 'career'
+type FeatureId = 'sgpa' | 'study' | 'resume' | 'career'
 
 interface FeatureStep {
     icon: React.ElementType
@@ -38,6 +38,46 @@ interface Feature {
 }
 
 const features: Feature[] = [
+    {
+        id: 'sgpa',
+        icon: Sparkles,
+        accentIcon: GraduationCap,
+        title: 'SGPA — Study Guide & Personal Assistant',
+        tagline: 'AI Academic Explainer, Quizzer, Exam Solver & Answer Evaluator',
+        description: 'Master any concept with simple analogies, generate exam practice quizzes with answer keys, get step-by-step solutions to past papers, and evaluate your written answers.',
+        color: '#4f46e5',
+        gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+        glowColor: 'rgba(79, 70, 229, 0.15)',
+        benefits: [
+            'Intuitive concept breakdowns with analogies, common pitfalls & key takeaways',
+            'Generates multi-format quizzes (MCQ, True/False, Fill-ins) with Answer Keys',
+            'Solves exam and assignment questions calibrated to marks and word limits',
+            'Grades and evaluates student answers with detailed scoring & feedback',
+        ],
+        steps: [
+            {
+                icon: Cpu,
+                title: 'Step 1: Choose Your Study Mode',
+                description: 'Pick Concept Explainer, Quiz Generator, Exam Solver, or Answer Evaluator.',
+                action: 'Open SGPA',
+                link: '/sgpa',
+            },
+            {
+                icon: FileText,
+                title: 'Step 2: Enter Topic or Exam Question',
+                description: 'Type your academic topic, paste textbook passages, or enter questions.',
+                action: 'Try Explainer',
+                link: '/sgpa',
+            },
+            {
+                icon: Award,
+                title: 'Step 3: Revise, Test & Grade',
+                description: 'Study visual ASCII/Mermaid diagrams, attempt quizzes, and check scorecards.',
+                action: 'Start Learning',
+                link: '/sgpa',
+            },
+        ],
+    },
     {
         id: 'study',
         icon: BookOpen,
@@ -161,6 +201,7 @@ const features: Feature[] = [
 ]
 
 const SECTOR_FEATURES = [
+    { icon: Sparkles, label: 'SGPA Study Assistant' },
     { icon: BookOpen, label: 'Study Summarizer' },
     { icon: NotebookPen, label: 'Notes & Tasks' },
     { icon: FileSearch, label: 'Resume Analyzer' },
