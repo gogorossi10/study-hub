@@ -22,6 +22,7 @@ import { Card, FadeIn, Button, Field, Stat } from '../components/ui/Primitives'
 import { GuidedPageHeader } from '../components/ui/GuidedPageHeader'
 import { apiGet, apiSend } from '../lib/api'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 
 type Note = {
     id?: number
@@ -75,6 +76,8 @@ const WORKSPACE_STEPS = [
 
 export function WorkspacePage() {
     const toast = useToast()
+    const { user } = useAuth()
+    const userEmail = user?.email || ''
     const [tab, setTab] = useState<'notes' | 'checkpoint' | 'diary'>('notes')
 
     // Notes state
@@ -117,22 +120,22 @@ export function WorkspacePage() {
         loadNotes()
         loadCheckpoint(targetDate)
         loadDiary()
-    }, [targetDate])
+    }, [targetDate, noteSearch, selectedCategory, userEmail])
 
     function loadNotes() {
-        apiGet<{ notes: Note[] }>(`/notes?q=${encodeURIComponent(noteSearch)}&category=${encodeURIComponent(selectedCategory)}`)
+        apiGet<{ notes: Note[] }>(`/notes?q=${encodeURIComponent(noteSearch)}&category=${encodeURIComponent(selectedCategory)}&user_email=${encodeURIComponent(userEmail)}`)
             .then((res) => setNotes(res.notes || []))
             .catch(() => { })
     }
 
     function loadCheckpoint(dateStr: string) {
-        apiGet<{ checkpoint: Checkpoint }>(`/checkpoints/${dateStr}`)
+        apiGet<{ checkpoint: Checkpoint }>(`/checkpoints/${dateStr}?user_email=${encodeURIComponent(userEmail)}`)
             .then((res) => setCheckpoint(res.checkpoint))
             .catch(() => { })
     }
 
     function loadDiary() {
-        apiGet<{ entries: DiaryEntry[] }>('/diary')
+        apiGet<{ entries: DiaryEntry[] }>(`/diary?user_email=${encodeURIComponent(userEmail)}`)
             .then((res) => setDiaryEntries(res.entries || []))
             .catch(() => { })
     }
@@ -148,7 +151,7 @@ export function WorkspacePage() {
             .map((t) => t.trim())
             .filter(Boolean)
 
-        const payload: Note = {
+        const payload = {
             id: editingNote?.id,
             title: noteTitle,
             content: noteContent,
@@ -156,6 +159,7 @@ export function WorkspacePage() {
             tags: tags,
             color: noteColor,
             is_pinned: notePinned,
+            user_email: userEmail,
         }
 
         try {
@@ -172,7 +176,7 @@ export function WorkspacePage() {
     async function handleDeleteNote(id?: number) {
         if (!id) return
         try {
-            await apiSend(`/notes/${id}`, 'DELETE')
+            await apiSend(`/notes/${id}`, 'DELETE', { user_email: userEmail })
             toast.push('Note deleted.')
             loadNotes()
         } catch {
@@ -182,7 +186,7 @@ export function WorkspacePage() {
 
     async function togglePinNote(note: Note) {
         try {
-            await apiSend('/notes', 'POST', { ...note, is_pinned: !note.is_pinned })
+            await apiSend('/notes', 'POST', { ...note, is_pinned: !note.is_pinned, user_email: userEmail })
             toast.push(note.is_pinned ? 'Unpinned note' : 'Pinned note to top')
             loadNotes()
         } catch { }
@@ -218,7 +222,7 @@ export function WorkspacePage() {
     async function updateCheckpoint(updated: Checkpoint) {
         setCheckpoint(updated)
         try {
-            await apiSend('/checkpoints', 'POST', updated)
+            await apiSend('/checkpoints', 'POST', { ...updated, user_email: userEmail })
         } catch { }
     }
 
@@ -258,13 +262,14 @@ export function WorkspacePage() {
             .map((t) => t.trim())
             .filter(Boolean)
 
-        const payload: DiaryEntry = {
+        const payload = {
             date: targetDate,
             title: diaryTitle.trim() || `Diary Reflection (${targetDate})`,
             entry: diaryEntry,
             mood: diaryMood,
             productivity_rating: diaryRating,
             tags: tags,
+            user_email: userEmail,
         }
 
         try {
@@ -282,7 +287,7 @@ export function WorkspacePage() {
     async function handleDeleteDiary(id?: number) {
         if (!id) return
         try {
-            await apiSend(`/diary/${id}`, 'DELETE')
+            await apiSend(`/diary/${id}`, 'DELETE', { user_email: userEmail })
             toast.push('Diary entry removed.')
             loadDiary()
         } catch { }

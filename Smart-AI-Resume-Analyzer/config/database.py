@@ -82,10 +82,11 @@ def init_database():
     )
     ''')
 
-    # Create user_notes table
+    # Create user_notes table (per-user)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS user_notes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_email TEXT NOT NULL DEFAULT '',
         title TEXT NOT NULL,
         content TEXT,
         category TEXT DEFAULT 'General',
@@ -97,24 +98,27 @@ def init_database():
     )
     ''')
 
-    # Create daily_checkpoints table
+    # Create daily_checkpoints table (per-user per-date)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS daily_checkpoints (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL UNIQUE,
+        user_email TEXT NOT NULL DEFAULT '',
+        date TEXT NOT NULL,
         target_focus TEXT DEFAULT '',
         tasks TEXT DEFAULT '[]',
         habit_water INTEGER DEFAULT 0,
         habit_study_mins INTEGER DEFAULT 0,
         habit_code_mins INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_email, date)
     )
     ''')
 
-    # Create personal_diary table
+    # Create personal_diary table (per-user)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS personal_diary (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_email TEXT NOT NULL DEFAULT '',
         date TEXT NOT NULL,
         title TEXT NOT NULL,
         entry TEXT NOT NULL,
@@ -124,6 +128,16 @@ def init_database():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+
+    # Migration: add user_email column if missing from older DB
+    for tbl in ['user_notes', 'daily_checkpoints', 'personal_diary']:
+        try:
+            cursor.execute(f"PRAGMA table_info({tbl})")
+            cols = [row[1] for row in cursor.fetchall()]
+            if 'user_email' not in cols:
+                cursor.execute(f"ALTER TABLE {tbl} ADD COLUMN user_email TEXT NOT NULL DEFAULT ''")
+        except Exception:
+            pass
 
     conn.commit()
     conn.close()
@@ -623,12 +637,12 @@ def reset_ai_analysis_stats():
 # ------------------------------------------------------------------
 # NOTES SAVER CRUD
 # ------------------------------------------------------------------
-def get_all_notes(q=None, category=None):
+def get_all_notes(q=None, category=None, user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     try:
-        query = "SELECT id, title, content, category, tags, color, is_pinned, created_at, updated_at FROM user_notes WHERE 1=1"
-        params = []
+        query = "SELECT id, title, content, category, tags, color, is_pinned, created_at, updated_at FROM user_notes WHERE user_email = ?"
+        params = [user_email]
         if category and category != 'All':
             query += " AND category = ?"
             params.append(category)
@@ -665,7 +679,7 @@ def get_all_notes(q=None, category=None):
         conn.close()
 
 
-def add_or_update_note(data):
+def add_or_update_note(data, user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     import json
@@ -683,15 +697,15 @@ def add_or_update_note(data):
             cursor.execute('''
                 UPDATE user_notes
                 SET title=?, content=?, category=?, tags=?, color=?, is_pinned=?, updated_at=?
-                WHERE id=?
-            ''', (title, content, category, tags, color, is_pinned, now, note_id))
+                WHERE id=? AND user_email=?
+            ''', (title, content, category, tags, color, is_pinned, now, note_id, user_email))
             conn.commit()
             return note_id
         else:
             cursor.execute('''
-                INSERT INTO user_notes (title, content, category, tags, color, is_pinned, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (title, content, category, tags, color, is_pinned, now, now))
+                INSERT INTO user_notes (user_email, title, content, category, tags, color, is_pinned, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_email, title, content, category, tags, color, is_pinned, now, now))
             conn.commit()
             return cursor.lastrowid
     except Exception as e:
@@ -702,11 +716,11 @@ def add_or_update_note(data):
         conn.close()
 
 
-def delete_note_by_id(note_id):
+def delete_note_by_id(note_id, user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM user_notes WHERE id=?", (note_id,))
+        cursor.execute("DELETE FROM user_notes WHERE id=? AND user_email=?", (note_id, user_email))
         conn.commit()
         return True
     except Exception as e:
@@ -719,12 +733,12 @@ def delete_note_by_id(note_id):
 # ------------------------------------------------------------------
 # DAILY CHECKPOINTS CRUD
 # ------------------------------------------------------------------
-def get_daily_checkpoint_by_date(target_date):
+def get_daily_checkpoint_by_date(target_date, user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     import json
     try:
-        cursor.execute("SELECT id, date, target_focus, tasks, habit_water, habit_study_mins, habit_code_mins, created_at FROM daily_checkpoints WHERE date=?", (target_date,))
+        cursor.execute("SELECT id, date, target_focus, tasks, habit_water, habit_study_mins, habit_code_mins, created_at FROM daily_checkpoints WHERE date=? AND user_email=?", (target_date, user_email))
         row = cursor.fetchone()
         if not row:
             return {
@@ -762,7 +776,7 @@ def get_daily_checkpoint_by_date(target_date):
         conn.close()
 
 
-def save_daily_checkpoint_data(data):
+def save_daily_checkpoint_data(data, user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     import json
@@ -774,19 +788,19 @@ def save_daily_checkpoint_data(data):
     code = data.get("habit_code_mins", 0)
 
     try:
-        cursor.execute("SELECT id FROM daily_checkpoints WHERE date=?", (target_date,))
+        cursor.execute("SELECT id FROM daily_checkpoints WHERE date=? AND user_email=?", (target_date, user_email))
         existing = cursor.fetchone()
         if existing:
             cursor.execute('''
                 UPDATE daily_checkpoints
                 SET target_focus=?, tasks=?, habit_water=?, habit_study_mins=?, habit_code_mins=?
-                WHERE date=?
-            ''', (focus, tasks, water, study, code, target_date))
+                WHERE date=? AND user_email=?
+            ''', (focus, tasks, water, study, code, target_date, user_email))
         else:
             cursor.execute('''
-                INSERT INTO daily_checkpoints (date, target_focus, tasks, habit_water, habit_study_mins, habit_code_mins)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (target_date, focus, tasks, water, study, code))
+                INSERT INTO daily_checkpoints (user_email, date, target_focus, tasks, habit_water, habit_study_mins, habit_code_mins)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (user_email, target_date, focus, tasks, water, study, code))
         conn.commit()
         return True
     except Exception as e:
@@ -800,12 +814,12 @@ def save_daily_checkpoint_data(data):
 # ------------------------------------------------------------------
 # PERSONAL DIARY CRUD
 # ------------------------------------------------------------------
-def get_all_diary_entries():
+def get_all_diary_entries(user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     import json
     try:
-        cursor.execute("SELECT id, date, title, entry, mood, productivity_rating, tags, created_at FROM personal_diary ORDER BY date DESC, id DESC")
+        cursor.execute("SELECT id, date, title, entry, mood, productivity_rating, tags, created_at FROM personal_diary WHERE user_email=? ORDER BY date DESC, id DESC", (user_email,))
         rows = cursor.fetchall()
         entries = []
         for r in rows:
@@ -831,7 +845,7 @@ def get_all_diary_entries():
         conn.close()
 
 
-def add_diary_entry_data(data):
+def add_diary_entry_data(data, user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     import json
@@ -844,9 +858,9 @@ def add_diary_entry_data(data):
 
     try:
         cursor.execute('''
-            INSERT INTO personal_diary (date, title, entry, mood, productivity_rating, tags)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (entry_date, title, entry, mood, rating, tags))
+            INSERT INTO personal_diary (user_email, date, title, entry, mood, productivity_rating, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (user_email, entry_date, title, entry, mood, rating, tags))
         conn.commit()
         return cursor.lastrowid
     except Exception as e:
@@ -857,11 +871,11 @@ def add_diary_entry_data(data):
         conn.close()
 
 
-def delete_diary_entry_by_id(entry_id):
+def delete_diary_entry_by_id(entry_id, user_email=''):
     conn = get_database_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM personal_diary WHERE id=?", (entry_id,))
+        cursor.execute("DELETE FROM personal_diary WHERE id=? AND user_email=?", (entry_id, user_email))
         conn.commit()
         return True
     except Exception as e:

@@ -339,6 +339,7 @@ class NoteBody(BaseModel):
     tags: list = []
     color: str = "#3b82f6"
     is_pinned: bool = False
+    user_email: str = ""
 
 
 class CheckpointBody(BaseModel):
@@ -348,6 +349,7 @@ class CheckpointBody(BaseModel):
     habit_water: int = 0
     habit_study_mins: int = 0
     habit_code_mins: int = 0
+    user_email: str = ""
 
 
 class DiaryBody(BaseModel):
@@ -357,64 +359,65 @@ class DiaryBody(BaseModel):
     mood: str = "😊"
     productivity_rating: int = 5
     tags: list = []
+    user_email: str = ""
 
 
 @app.get("/api/notes")
-def list_notes(q: Optional[str] = None, category: Optional[str] = None) -> dict:
+def list_notes(q: Optional[str] = None, category: Optional[str] = None, user_email: Optional[str] = "") -> dict:
     init_database()
-    notes = get_all_notes(q=q, category=category)
+    notes = get_all_notes(q=q, category=category, user_email=user_email or '')
     return {"notes": notes}
 
 
 @app.post("/api/notes")
 def save_note(body: NoteBody) -> dict:
     init_database()
-    note_id = add_or_update_note(body.model_dump())
+    note_id = add_or_update_note(body.model_dump(), user_email=body.user_email or '')
     if not note_id:
         raise HTTPException(status_code=400, detail="Could not save note.")
     return {"id": note_id, "ok": True}
 
 
 @app.delete("/api/notes/{note_id}")
-def remove_note(note_id: int) -> dict:
+def remove_note(note_id: int, user_email: Optional[str] = "") -> dict:
     init_database()
-    ok = delete_note_by_id(note_id)
+    ok = delete_note_by_id(note_id, user_email=user_email or '')
     return {"ok": ok}
 
 
 @app.get("/api/checkpoints/{target_date}")
-def get_checkpoint(target_date: str) -> dict:
+def get_checkpoint(target_date: str, user_email: Optional[str] = "") -> dict:
     init_database()
-    checkpoint = get_daily_checkpoint_by_date(target_date)
+    checkpoint = get_daily_checkpoint_by_date(target_date, user_email=user_email or '')
     return {"checkpoint": checkpoint}
 
 
 @app.post("/api/checkpoints")
 def save_checkpoint(body: CheckpointBody) -> dict:
     init_database()
-    ok = save_daily_checkpoint_data(body.model_dump())
+    ok = save_daily_checkpoint_data(body.model_dump(), user_email=body.user_email or '')
     return {"ok": ok}
 
 
 @app.get("/api/diary")
-def list_diary() -> dict:
+def list_diary(user_email: Optional[str] = "") -> dict:
     init_database()
-    entries = get_all_diary_entries()
+    entries = get_all_diary_entries(user_email=user_email or '')
     return {"entries": entries}
 
 
 @app.post("/api/diary")
 def create_diary(body: DiaryBody) -> dict:
     init_database()
-    entry_id = add_diary_entry_data(body.model_dump())
+    entry_id = add_diary_entry_data(body.model_dump(), user_email=body.user_email or '')
     if not entry_id:
         raise HTTPException(status_code=400, detail="Could not save diary entry.")
     return {"id": entry_id, "ok": True}
 
 
 @app.delete("/api/diary/{entry_id}")
-def remove_diary(entry_id: int) -> dict:
+def remove_diary(entry_id: int, user_email: Optional[str] = "") -> dict:
     init_database()
-    ok = delete_diary_entry_by_id(entry_id)
+    ok = delete_diary_entry_by_id(entry_id, user_email=user_email or '')
     return {"ok": ok}
 
