@@ -165,9 +165,8 @@ const SECTOR_FEATURES = [
     { icon: NotebookPen, label: 'Notes & Tasks' },
     { icon: FileSearch, label: 'Resume Analyzer' },
     { icon: FileText, label: 'Resume Builder' },
-    { icon: Briefcase, label: 'Application Tracker' },
-    { icon: Search, label: 'Job Search' },
     { icon: BarChart3, label: 'Career Dashboard' },
+    { icon: Search, label: 'Job Search' },
 ]
 
 function SplashScreen({ onEnter }: { onEnter: () => void }) {

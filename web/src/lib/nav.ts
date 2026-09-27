@@ -4,7 +4,6 @@ import {
   FileSearch,
   FileText,
   Home,
-  KanbanSquare,
   NotebookPen,
   Search,
   type LucideIcon,
@@ -24,9 +23,8 @@ export const NAV: NavItem[] = [
   { to: '/summarizer', label: 'Study Summarizer', hint: 'Turn notes into reviews', icon: BookOpen, group: 'Academic' },
   { to: '/analyzer', label: 'Resume Analyzer', hint: 'Score a resume against a role', icon: FileSearch, group: 'Career' },
   { to: '/builder', label: 'Resume Builder', hint: 'Write and download a Word resume', icon: FileText, group: 'Career' },
-  { to: '/tracker', label: 'Application Tracker', hint: 'Move roles through a pipeline', icon: KanbanSquare, group: 'Career' },
+  { to: '/dashboard', label: 'Career Dashboard', hint: 'ATS trends and metrics', icon: BarChart3, group: 'Career' },
   { to: '/jobs', label: 'Job Search', hint: 'Open listings across portals', icon: Search, group: 'Career' },
-  { to: '/dashboard', label: 'Career Dashboard', hint: 'ATS trends and pipeline health', icon: BarChart3, group: 'Career' },
 ]
 
 export function pageMeta(path: string) {
