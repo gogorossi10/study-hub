@@ -9,6 +9,7 @@ import {
   Copy,
   Check,
   RotateCcw,
+  Loader2,
 } from 'lucide-react'
 import { Card, FadeIn, Button, Field, Dropzone, Stat, EmptyState } from '../components/ui/Primitives'
 import { GuidedPageHeader } from '../components/ui/GuidedPageHeader'
@@ -20,6 +21,7 @@ import {
   sgpaSummarize,
   type SGPAResult,
 } from '../lib/api'
+import { extractTextFromFile } from '../lib/fileExtractor'
 import { useToast } from '../context/ToastContext'
 import { MarkdownRenderer } from '../components/ui/MarkdownRenderer'
 
@@ -36,7 +38,7 @@ const QUICK_TOPICS = [
 
 const pageSteps = [
   { title: 'Select mode', description: 'Explainer, Quiz, Solver, Evaluator' },
-  { title: 'Provide topic / material', description: 'Enter topic, paste text or questions' },
+  { title: 'Provide topic / material', description: 'Enter topic, paste text or upload notes' },
   { title: 'Study & revise', description: 'Get high-yield AI responses' },
 ]
 
@@ -66,6 +68,7 @@ export function StudyHelpAIPage() {
   const [summaryMaterial, setSummaryMaterial] = useState('')
   const [summaryFocus, setSummaryFocus] = useState('')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [extracting, setExtracting] = useState(false)
 
   // Result & loading states
   const [loading, setLoading] = useState(false)
@@ -78,19 +81,29 @@ export function StudyHelpAIPage() {
   const handleFileUpload = async (file: File | null) => {
     setUploadedFile(file)
     if (!file) return
+    setExtracting(true)
     try {
-      const text = await file.text()
-      const clean = text.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, ' ')
-      if (activeMode === 'summarizer') {
-        setSummaryMaterial(clean)
-      } else if (activeMode === 'quiz_gen') {
-        setQuizMaterial(clean)
-      } else {
-        setConcept(clean.slice(0, 500))
+      const cleanText = await extractTextFromFile(file)
+      if (!cleanText || cleanText.trim().length === 0) {
+        throw new Error('No readable text could be extracted from this file.')
       }
-      toast.push(`Loaded content from ${file.name}`)
-    } catch {
-      toast.push('Could not read file directly, you can paste text below.')
+      if (activeMode === 'summarizer') {
+        setSummaryMaterial(cleanText)
+      } else if (activeMode === 'quiz_gen') {
+        setQuizMaterial(cleanText)
+      } else if (activeMode === 'solver') {
+        setExamQuestions(cleanText)
+      } else if (activeMode === 'evaluator') {
+        setEvalQuestions(cleanText)
+      } else {
+        setConcept(cleanText.slice(0, 500))
+      }
+      toast.push(`✨ Clean text extracted from "${file.name}"!`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not extract text from file.'
+      toast.push(`⚠️ ${msg}`)
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -275,20 +288,25 @@ export function StudyHelpAIPage() {
                   Self-Assessment Quiz Generator
                 </h3>
                 <p className="muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
-                  Generate MCQs, True/False, and analytical questions with separated answer keys.
+                  Generate MCQs, True/False, and analytical questions with separated answer keys from any topic or document.
                 </p>
 
                 <Dropzone
                   file={uploadedFile}
-                  hint="Upload study notes or chapter (optional)"
-                  accept=".txt,.pdf,.md"
+                  hint={extracting ? 'Extracting clean text from document…' : 'Upload PDF or text document (optional)'}
+                  accept=".txt,.pdf,.md,.docx,.doc"
                   onFile={handleFileUpload}
                 />
+                {extracting && (
+                  <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+                    <Loader2 size={14} className="animate-spin" /> Extracting document text...
+                  </p>
+                )}
 
                 <Field label="Notes or Topic for Quiz">
                   <textarea
                     className="input"
-                    rows={4}
+                    rows={5}
                     value={quizMaterial}
                     onChange={(e) => setQuizMaterial(e.target.value)}
                     placeholder="Paste chapter notes, lecture text, or specify a subject syllabus..."
@@ -330,6 +348,18 @@ export function StudyHelpAIPage() {
                 <p className="muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
                   Get structured, point-wise solutions calibrated for university exam mark schemes.
                 </p>
+
+                <Dropzone
+                  file={uploadedFile}
+                  hint={extracting ? 'Extracting questions from document…' : 'Upload question paper / PDF (optional)'}
+                  accept=".txt,.pdf,.md,.docx,.doc"
+                  onFile={handleFileUpload}
+                />
+                {extracting && (
+                  <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+                    <Loader2 size={14} className="animate-spin" /> Extracting questions...
+                  </p>
+                )}
 
                 <Field label="Exam / Assignment Questions">
                   <textarea
@@ -406,15 +436,20 @@ export function StudyHelpAIPage() {
 
                 <Dropzone
                   file={uploadedFile}
-                  hint="Upload lecture notes or slides (optional)"
-                  accept=".txt,.pdf,.md"
+                  hint={extracting ? 'Extracting clean text from file…' : 'Upload lecture notes, chapter PDF or slides'}
+                  accept=".txt,.pdf,.md,.docx,.doc"
                   onFile={handleFileUpload}
                 />
+                {extracting && (
+                  <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+                    <Loader2 size={14} className="animate-spin" /> Extracting text...
+                  </p>
+                )}
 
                 <Field label="Study Material">
                   <textarea
                     className="input"
-                    rows={4}
+                    rows={5}
                     value={summaryMaterial}
                     onChange={(e) => setSummaryMaterial(e.target.value)}
                     placeholder="Paste your study notes or chapter text here..."
@@ -435,7 +470,7 @@ export function StudyHelpAIPage() {
             {error && <p style={{ color: 'var(--danger)', marginTop: '0.8rem' }}>{error}</p>}
 
             <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.2rem' }}>
-              <Button onClick={() => void handleRun()} disabled={loading} style={{ flex: 1 }}>
+              <Button onClick={() => void handleRun()} disabled={loading || extracting} style={{ flex: 1 }}>
                 {loading ? 'Generating with Study Help AI…' : '🚀 Ask Study Help AI'}
               </Button>
               {result && (

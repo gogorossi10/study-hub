@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, Loader2 } from 'lucide-react'
 import { Card, FadeIn, Button, Field, Dropzone, Stat, EmptyState } from '../components/ui/Primitives'
 import { GuidedPageHeader } from '../components/ui/GuidedPageHeader'
 import { apiForm } from '../lib/api'
+import { extractTextFromFile } from '../lib/fileExtractor'
 import { useToast } from '../context/ToastContext'
+import { MarkdownRenderer } from '../components/ui/MarkdownRenderer'
 
 type SummaryResult = {
   summary: string
@@ -32,10 +34,28 @@ export function SummarizerPage() {
   const [mode, setMode] = useState('executive')
   const [length, setLength] = useState('medium')
   const [loading, setLoading] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<SummaryResult | null>(null)
 
   const currentStep = result ? 2 : file || text ? 1 : 0
+
+  const handleFile = async (selectedFile: File | null) => {
+    setFile(selectedFile)
+    if (!selectedFile) return
+    setExtracting(true)
+    try {
+      const clean = await extractTextFromFile(selectedFile)
+      if (clean && clean.trim()) {
+        setText(clean)
+        toast.push(`✨ Extracted text from "${selectedFile.name}"!`)
+      }
+    } catch (err) {
+      toast.push('⚠️ Could not extract text from file, you can paste notes below.')
+    } finally {
+      setExtracting(false)
+    }
+  }
 
   async function run() {
     setError('')
@@ -71,10 +91,21 @@ export function SummarizerPage() {
       <div className="grid grid-2">
         <FadeIn>
           <Card>
-            <Dropzone file={file} hint="Drop a study document here" accept=".pdf,.txt,.docx,.doc" onFile={setFile} />
+            <Dropzone
+              file={file}
+              hint={extracting ? 'Extracting readable text from document…' : 'Drop a study document or PDF here'}
+              accept=".pdf,.txt,.docx,.doc,.md"
+              onFile={handleFile}
+            />
+            {extracting && (
+              <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+                <Loader2 size={14} className="animate-spin" /> Extracting document text...
+              </p>
+            )}
             <Field label="Or paste notes">
               <textarea
                 className="input"
+                rows={6}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Paste lecture notes, an article, or a chapter..."
@@ -97,9 +128,9 @@ export function SummarizerPage() {
                 </select>
               </Field>
             </div>
-            {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
-            <Button style={{ marginTop: '1rem' }} onClick={() => void run()} disabled={loading}>
-              {loading ? 'Summarizing…' : 'Create study summary'}
+            {error ? <p style={{ color: 'var(--danger)', marginTop: '0.8rem' }}>{error}</p> : null}
+            <Button style={{ marginTop: '1rem' }} onClick={() => void run()} disabled={loading || extracting}>
+              {loading ? 'Summarizing with AI…' : 'Create study summary'}
             </Button>
           </Card>
         </FadeIn>
@@ -118,28 +149,36 @@ export function SummarizerPage() {
                 <Stat value={`${result.stats.compression_pct}%`} label="Compressed" />
                 <Stat value={`${result.stats.read_time_saved_min}m`} label="Time saved" />
               </div>
+
               <h3>Summary</h3>
-              <p className="soft">{result.summary}</p>
-              <h3>Key takeaways</h3>
+              <div style={{ background: 'var(--surface-sunken, rgba(99, 102, 241, 0.04))', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <MarkdownRenderer content={result.summary} />
+              </div>
+
+              <h3 style={{ marginTop: '1.2rem' }}>Key Takeaways</h3>
               <ul>
-                {result.bullets.map((b) => (
-                  <li key={b}>{b.replace(/^•\s*/, '')}</li>
+                {result.bullets.map((b, idx) => (
+                  <li key={idx} style={{ marginBottom: '0.3rem' }}>
+                    <MarkdownRenderer content={b.replace(/^•\s*/, '')} />
+                  </li>
                 ))}
               </ul>
+
               {result.study_notes?.length ? (
                 <>
-                  <h3>Concepts to review</h3>
+                  <h3 style={{ marginTop: '1.2rem' }}>Concepts to review</h3>
                   <div className="grid">
                     {result.study_notes.slice(0, 8).map((note) => (
-                      <div key={note.concept} className="card" style={{ padding: '0.8rem' }}>
+                      <div key={note.concept} className="card" style={{ padding: '0.8rem', border: '1px solid var(--border)' }}>
                         <strong>{note.concept}</strong>
-                        <p className="muted">{note.context}</p>
+                        <p className="muted" style={{ margin: '0.3rem 0 0' }}>{note.context}</p>
                       </div>
                     ))}
                   </div>
                 </>
               ) : null}
-              <div className="chip-row" style={{ marginTop: '1rem' }}>
+
+              <div className="chip-row" style={{ marginTop: '1.2rem' }}>
                 {result.keywords.map((k) => (
                   <span className="chip" key={k}>{k}</span>
                 ))}

@@ -1,4 +1,5 @@
 import { generateWithGemini, getStoredGeminiKey } from './gemini'
+import { extractTextFromFile } from './fileExtractor'
 
 export function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ')
@@ -962,7 +963,15 @@ export async function apiForm<T>(path: string, form: FormData): Promise<T> {
 
   // Fallback handlers for form uploads
   if (path === '/summarize') {
-    const text = (form.get('text') as string) || ''
+    let text = (form.get('text') as string) || ''
+    const file = form.get('file') as File | null
+    if (file && (!text || !text.trim())) {
+      try {
+        text = await extractTextFromFile(file)
+      } catch (err) {
+        console.warn('File extraction error in /summarize:', err)
+      }
+    }
     const mode = (form.get('mode') as string) || 'executive'
     const length = (form.get('length') as string) || 'medium'
     return (await getFallbackSummaryResponse(text, mode, length)) as unknown as T

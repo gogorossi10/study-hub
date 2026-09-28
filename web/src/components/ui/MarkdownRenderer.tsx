@@ -9,16 +9,18 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
   const parseMarkdown = (raw: string): React.ReactNode[] => {
     if (!raw) return []
 
-    // Normalize newlines
-    const lines = raw.split(/\r?\n/)
+    // Normalize newlines and clean non-printable chars
+    const cleaned = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+    const lines = cleaned.split(/\r?\n/)
     const elements: React.ReactNode[] = []
     let i = 0
 
     const renderInline = (text: string): React.ReactNode[] => {
-      // Split by bold (**text**), code (`code`), italic (*text*)
+      if (!text) return []
+
       const parts: React.ReactNode[] = []
-      // Pattern matching **bold**, `code`, *italic*, and [links](url)
-      const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|https?:\/\/[^\s]+)/g
+      // Match bold (**text** or __text__), inline code (`code`), math ($math$), italic (*text* or _text_), links [text](url) or URLs
+      const regex = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\$[^$]+\$|\[([^\]]+)\]\(([^)]+)\)|\*[^*]+\*|_[^_]+_|https?:\/\/[^\s]+)/g
       let lastIndex = 0
       let match: RegExpExecArray | null
 
@@ -28,7 +30,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         }
 
         const matchText = match[0]
-        if (matchText.startsWith('**') && matchText.endsWith('**')) {
+        if ((matchText.startsWith('**') && matchText.endsWith('**')) || (matchText.startsWith('__') && matchText.endsWith('__'))) {
           parts.push(
             <strong key={`b-${match.index}`} style={{ fontWeight: 650, color: 'var(--text-primary)' }}>
               {matchText.slice(2, -2)}
@@ -39,7 +41,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
             <code
               key={`c-${match.index}`}
               style={{
-                background: 'rgba(99, 102, 241, 0.1)',
+                background: 'rgba(99, 102, 241, 0.12)',
                 color: '#6366f1',
                 padding: '2px 6px',
                 borderRadius: '4px',
@@ -50,7 +52,36 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
               {matchText.slice(1, -1)}
             </code>
           )
-        } else if (matchText.startsWith('*') && matchText.endsWith('*')) {
+        } else if (matchText.startsWith('$') && matchText.endsWith('$')) {
+          parts.push(
+            <code
+              key={`m-${match.index}`}
+              style={{
+                background: 'rgba(16, 185, 129, 0.1)',
+                color: '#10b981',
+                padding: '2px 5px',
+                borderRadius: '4px',
+                fontSize: '0.9em',
+                fontFamily: 'monospace',
+                fontStyle: 'italic',
+              }}
+            >
+              {matchText.slice(1, -1)}
+            </code>
+          )
+        } else if (matchText.startsWith('[') && match[2] && match[3]) {
+          parts.push(
+            <a
+              key={`link-${match.index}`}
+              href={match[3]}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#6366f1', textDecoration: 'underline' }}
+            >
+              {match[2]}
+            </a>
+          )
+        } else if ((matchText.startsWith('*') && matchText.endsWith('*')) || (matchText.startsWith('_') && matchText.endsWith('_'))) {
           parts.push(
             <em key={`i-${match.index}`} style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>
               {matchText.slice(1, -1)}
@@ -171,7 +202,6 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         i++
         while (i < lines.length && !lines[i].startsWith('```')) {
           codeLines.push(lines[i])
-          i++
         }
         if (i < lines.length) i++ // skip ending ```
 
@@ -206,7 +236,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
                 {lang}
               </div>
             )}
-            <pre style={{ margin: 0 }}>{codeContent}</pre>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{codeContent}</pre>
           </div>
         )
         continue
@@ -262,7 +292,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
                       key={rIdx}
                       style={{
                         borderBottom: '1px solid var(--border)',
-                        background: rIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)',
+                        background: rIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)',
                       }}
                     >
                       {row.map((cell, cIdx) => (
@@ -278,6 +308,37 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
           )
           continue
         }
+      }
+
+      // Blockquotes (> quote)
+      if (line.startsWith('>')) {
+        const quoteLines: string[] = []
+        while (i < lines.length && lines[i].trim().startsWith('>')) {
+          quoteLines.push(lines[i].trim().replace(/^>\s*/, ''))
+          i++
+        }
+
+        elements.push(
+          <blockquote
+            key={`quote-${i}`}
+            style={{
+              margin: '0.8rem 0',
+              padding: '0.6rem 1rem',
+              borderLeft: '4px solid #6366f1',
+              background: 'rgba(99, 102, 241, 0.06)',
+              borderRadius: '0 8px 8px 0',
+              color: 'var(--text-secondary)',
+              fontStyle: 'italic',
+            }}
+          >
+            {quoteLines.map((ql, qIdx) => (
+              <p key={qIdx} style={{ margin: '0.2rem 0' }}>
+                {renderInline(ql)}
+              </p>
+            ))}
+          </blockquote>
+        )
+        continue
       }
 
       // Bullet lists (*, -, •)
@@ -309,10 +370,10 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
       }
 
       // Numbered lists (1., 2., etc.)
-      if (/^\d+\.\s+/.test(line)) {
+      if (/^\d+[\.\)]\s+/.test(line)) {
         const listItems: string[] = []
-        while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
-          listItems.push(lines[i].trim().replace(/^\d+\.\s+/, ''))
+        while (i < lines.length && /^\d+[\.\)]\s+/.test(lines[i].trim())) {
+          listItems.push(lines[i].trim().replace(/^\d+[\.\)]\s+/, ''))
           i++
         }
 
