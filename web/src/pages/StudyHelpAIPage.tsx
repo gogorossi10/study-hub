@@ -21,6 +21,7 @@ import {
   type SGPAResult,
 } from '../lib/api'
 import { useToast } from '../context/ToastContext'
+import { MarkdownRenderer } from '../components/ui/MarkdownRenderer'
 
 type StudyHelpMode = 'explainer' | 'quiz_gen' | 'solver' | 'evaluator' | 'summarizer'
 
@@ -478,17 +479,13 @@ export function StudyHelpAIPage() {
               {/* Formatted Markdown Output */}
               <div
                 style={{
-                  background: 'var(--surface-sunken, rgba(0,0,0,0.03))',
-                  padding: '1.25rem',
-                  borderRadius: '12px',
+                  background: 'var(--surface-sunken, rgba(99, 102, 241, 0.03))',
+                  padding: '1.4rem',
+                  borderRadius: '14px',
                   border: '1px solid var(--border)',
-                  lineHeight: '1.65',
-                  fontSize: '0.92rem',
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'inherit',
                 }}
               >
-                {result.response}
+                <MarkdownRenderer content={result.response} />
               </div>
             </Card>
           )}
