@@ -38,7 +38,7 @@ class SGPAStudyEngine:
         if _GENAI_AVAILABLE and self.api_key:
             try:
                 genai.configure(api_key=self.api_key)
-                for model_name in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-pro"]:
+                for model_name in ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-2.5-flash"]:
                     try:
                         self._model = genai.GenerativeModel(model_name)
                         break
