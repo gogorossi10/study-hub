@@ -13,7 +13,10 @@ export function getStoredGeminiKey(): string {
     // ignore
   }
 
-  return (import.meta.env.VITE_GEMINI_API_KEY || '').trim()
+  const envKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim()
+  if (envKey) return envKey
+
+  return ''
 }
 
 export function setStoredGeminiKey(key: string): void {
@@ -32,19 +35,24 @@ export async function testGeminiKey(apiKey: string): Promise<boolean> {
   const keyToTest = (apiKey || getStoredGeminiKey()).trim()
   if (!keyToTest) return false
 
-  const models = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.8-flash']
+  const models = ['gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-flash-lite-latest', 'gemini-3.8-flash']
   for (const model of models) {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 6000)
+
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyToTest}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: 'Respond with OK.' }] }],
           }),
         }
       )
+      clearTimeout(timeoutId)
       if (res.ok) {
         const data = await res.json()
         if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -52,7 +60,7 @@ export async function testGeminiKey(apiKey: string): Promise<boolean> {
         }
       }
     } catch {
-      // try next
+      // try next model
     }
   }
   return false
@@ -65,22 +73,26 @@ export async function generateWithGemini(prompt: string, customApiKey?: string):
     throw new Error('NO_KEY_AVAILABLE')
   }
 
+  // Fast & stable model priority: gemini-3.1-flash-lite is sub-3s
   const models = [
-    'gemini-3.7-flash',
     'gemini-3.1-flash-lite',
+    'gemini-3.7-flash',
     'gemini-flash-lite-latest',
     'gemini-3.8-flash',
-    'gemini-3.5-flash',
   ]
   let lastError = ''
 
   for (const model of models) {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 12000)
+
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
@@ -92,6 +104,7 @@ export async function generateWithGemini(prompt: string, customApiKey?: string):
           }),
         }
       )
+      clearTimeout(timeoutId)
 
       if (res.ok) {
         const data = await res.json()
@@ -102,7 +115,7 @@ export async function generateWithGemini(prompt: string, customApiKey?: string):
         lastError = errorData?.error?.message || `HTTP ${res.status}: ${res.statusText}`
       }
     } catch (err) {
-      lastError = err instanceof Error ? err.message : 'Network error'
+      lastError = err instanceof Error ? err.message : 'Network timeout'
     }
   }
 

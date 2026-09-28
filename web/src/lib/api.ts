@@ -1089,7 +1089,7 @@ export async function apiDownload(path: string, body: any, fallbackName: string)
 }
 
 // ------------------------------------------------------------------
-// SGPA (Study Guide & Personal Assistant) API Client Methods
+// SGPA / Study Help AI Direct & Live API Client Methods
 // ------------------------------------------------------------------
 
 export type SGPAResult = {
@@ -1108,58 +1108,159 @@ export type SGPAResult = {
 
 export async function explainConcept(
   concept: string,
-  context = '',
+  _context = '',
   include_visuals = true,
   academic_level = 'Undergraduate'
 ): Promise<SGPAResult> {
-  return apiSend<SGPAResult>('/sgpa/explain', 'POST', {
-    concept,
-    context,
-    include_visuals,
-    academic_level,
-  })
+  const prompt = `You are Study Help AI, an expert academic AI tutor for university students.
+
+[Academic Target Level]: ${academic_level}
+[Topic to Explain]: ${concept}
+
+Instructions:
+1. Provide an intuitive, easy-to-grasp definition with a relatable real-world analogy.
+2. Step-by-step breakdown or core principles with clear bullet points.
+3. Highlight Common Pitfalls & Misconceptions students often face in exams/interviews.
+4. End with 3-4 crisp "Key Takeaways" for high-yield revision.
+${include_visuals ? '- Include a clean sketchable ASCII/text diagram or standard ```mermaid code block.' : ''}
+Use clean, structured Markdown formatting.`
+
+  try {
+    const responseText = await generateWithGemini(prompt)
+    return {
+      mode: 'explainer',
+      concept,
+      response: responseText,
+    }
+  } catch (err) {
+    console.warn('Direct generation notice, falling back:', err)
+    return apiSend<SGPAResult>('/sgpa/explain', 'POST', {
+      concept,
+      include_visuals,
+      academic_level,
+    })
+  }
 }
 
 export async function generateQuiz(
   topic: string,
   num_questions = 5,
-  context = '',
+  _context = '',
   include_visuals = true
 ): Promise<SGPAResult> {
-  return apiSend<SGPAResult>('/sgpa/quiz/generate', 'POST', {
-    topic,
-    num_questions,
-    context,
-    include_visuals,
-  })
+  const prompt = `You are Study Help AI Quizzer, an academic assessment generator.
+
+[Source Material or Subject Topic]:
+${topic}
+
+Instructions:
+1. Generate a balanced test of approx ${num_questions} questions covering:
+   - Multiple Choice Questions (MCQ) with 4 distinct options (A, B, C, D) each on its own line.
+   - Conceptual True / False questions.
+   - Fill-in-the-Blanks.
+   - Short Analytical / Descriptive Question.
+2. Clearly number every question. If helpful, include a small italicized hint (*Hint: ...*).
+3. DO NOT reveal the correct answers immediately beneath the questions.
+4. Provide a dedicated section at the bottom titled \`## 🔑 Answer Key & Explanations\` with concise justifications.
+${include_visuals ? '5. Provide a compact Markdown Summary Table at the end:\n   | Q# | Subtopic | Difficulty | Key Concept Tested |' : ''}`
+
+  try {
+    const responseText = await generateWithGemini(prompt)
+    return {
+      mode: 'quiz_generate',
+      topic,
+      num_questions,
+      response: responseText,
+    }
+  } catch (err) {
+    console.warn('Direct generation notice, falling back:', err)
+    return apiSend<SGPAResult>('/sgpa/quiz/generate', 'POST', {
+      topic,
+      num_questions,
+      include_visuals,
+    })
+  }
 }
 
 export async function solveQuestions(
   questions: string,
   word_limit = 120,
   marks_category = 'Short Answer (2-3 Marks)',
-  context = ''
+  _context = ''
 ): Promise<SGPAResult> {
-  return apiSend<SGPAResult>('/sgpa/quiz/solve', 'POST', {
-    questions,
-    word_limit,
-    marks_category,
-    context,
-  })
+  const prompt = `You are Study Help AI Exam Solver, an expert academic assistant that produces high-scoring exam solutions.
+
+[Target Mark Scheme]: ${marks_category} (~${word_limit} words per answer)
+[Questions to Solve]:
+${questions}
+
+Instructions:
+1. Solve each question with structured, point-wise answers tailored for maximum marks.
+2. Format:
+   - **Q[number]: [Restated Question]**
+   - **Direct Answer / Formula / Thesis**: Concise lead sentence.
+   - **Detailed Points / Derivation / Working**: Clear numbered or bulleted breakdown.
+   - **Key Terminology / Keywords highlighted in bold**.
+3. Adhere approximately to the requested word limit (~${word_limit} words) and exam style.`
+
+  try {
+    const responseText = await generateWithGemini(prompt)
+    return {
+      mode: 'quiz_solve',
+      questions,
+      response: responseText,
+    }
+  } catch (err) {
+    console.warn('Direct generation notice, falling back:', err)
+    return apiSend<SGPAResult>('/sgpa/quiz/solve', 'POST', {
+      questions,
+      word_limit,
+      marks_category,
+    })
+  }
 }
 
 export async function evaluateAnswers(
   questions: string,
   student_answers: string,
-  context = '',
-  include_visuals = true
+  _context = '',
+  _include_visuals = true
 ): Promise<SGPAResult> {
-  return apiSend<SGPAResult>('/sgpa/quiz/evaluate', 'POST', {
-    questions,
-    student_answers,
-    context,
-    include_visuals,
-  })
+  const prompt = `You are Study Help AI Answer Evaluator, an objective and encouraging academic examiner.
+
+[Questions]:
+${questions}
+
+[Student's Submitted Answers]:
+${student_answers}
+
+Instructions:
+1. For each question:
+   - Identify whether the student's answer is Correct, Partially Correct, or Incorrect.
+   - Award a score (e.g. 4/5 marks, 1/1 mark, etc.).
+   - Provide constructive feedback: what was well done, what missing keywords/formulas were omitted, and how to improve.
+2. Provide an overall summary:
+   - **Total Estimated Score** (e.g., 16/20 | 80%).
+   - **Top Strengths**.
+   - **High-Priority Revision Areas**.
+3. Include a Markdown Scorecard Table:
+   | Question # | Max Marks | Marks Awarded | Verdict | Key Missing Points |`
+
+  try {
+    const responseText = await generateWithGemini(prompt)
+    return {
+      mode: 'quiz_evaluate',
+      questions,
+      student_answers,
+      response: responseText,
+    }
+  } catch (err) {
+    console.warn('Direct generation notice, falling back:', err)
+    return apiSend<SGPAResult>('/sgpa/quiz/evaluate', 'POST', {
+      questions,
+      student_answers,
+    })
+  }
 }
 
 export async function sgpaSummarize(
@@ -1168,11 +1269,42 @@ export async function sgpaSummarize(
   extra_instruction = '',
   include_visuals = true
 ): Promise<SGPAResult> {
-  return apiSend<SGPAResult>('/sgpa/summarize', 'POST', {
-    text,
-    user_focus,
-    extra_instruction,
-    include_visuals,
-  })
+  const prompt = `You are Study Help AI Academic Summarizer, an AI assistant preparing students for exams.
+
+[Student Focus]: ${extra_instruction || user_focus || 'Standard high-yield exam preparation'}
+[Study Material]:
+${text}
+
+Instructions:
+1. Create a structured, exam-oriented study brief:
+   - **📌 Core Definition & Main Objective**
+   - **⚡ Critical Concepts & Axioms** (Bulleted, bolding key terms)
+   - **📐 Key Formulas, Equations, or Algorithms** (if applicable)
+   - **💡 Real-world Applications & Exam Question Patterns**
+   - **❓ 3-4 High-Yield Practice Questions** for active recall testing.
+${include_visuals ? '- Include a sketchable ASCII diagram or mermaid code block.' : ''}
+Format in clean Markdown.`
+
+  const words = text.split(/\s+/).filter(Boolean).length
+  try {
+    const responseText = await generateWithGemini(prompt)
+    const summaryWords = responseText.split(/\s+/).filter(Boolean).length
+    return {
+      mode: 'summarize',
+      response: responseText,
+      original_words: words,
+      summary_words: summaryWords,
+      compression_pct: Math.round(Math.max(0, (1 - (summaryWords / Math.max(words, 1)))) * 100),
+    }
+  } catch (err) {
+    console.warn('Direct generation notice, falling back:', err)
+    return apiSend<SGPAResult>('/sgpa/summarize', 'POST', {
+      text,
+      user_focus,
+      extra_instruction,
+      include_visuals,
+    })
+  }
 }
+
 
